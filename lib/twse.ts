@@ -1,4 +1,5 @@
 import { ETF_ASSETS } from '@/lib/asset-classifier';
+import { searchUsUniverse } from '@/lib/us-universe';
 import { AssetCategory, AssetSnapshot, ChartPoint, DailyBar, LiveQuote, SearchResult } from '@/lib/types';
 
 const QUOTE_URL = 'https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?type=ALLBUT0999&response=json';
@@ -237,18 +238,6 @@ export async function getLiveSnapshots(): Promise<AssetSnapshot[]> {
   });
 }
 
-const US_FALLBACKS: SearchResult[] = [
-  { ticker: 'AAPL', name: 'Apple Inc.', market: 'US' },
-  { ticker: 'MSFT', name: 'Microsoft Corp.', market: 'US' },
-  { ticker: 'NVDA', name: 'NVIDIA Corp.', market: 'US' },
-  { ticker: 'TSLA', name: 'Tesla Inc.', market: 'US' },
-  { ticker: 'AMZN', name: 'Amazon.com Inc.', market: 'US' },
-  { ticker: 'META', name: 'Meta Platforms Inc.', market: 'US' },
-  { ticker: 'GOOGL', name: 'Alphabet Inc.', market: 'US' },
-  { ticker: 'QQQ', name: 'Invesco QQQ Trust', market: 'US' },
-  { ticker: 'SPY', name: 'SPDR S&P 500 ETF', market: 'US' },
-];
-
 export async function searchStocks(query: string): Promise<SearchResult[]> {
   const normalized = query.trim().toUpperCase();
   if (!normalized) return [];
@@ -258,18 +247,22 @@ export async function searchStocks(query: string): Promise<SearchResult[]> {
     .filter((quote) => quote.ticker.includes(normalized) || quote.name.toUpperCase().includes(normalized))
     .map((quote) => ({ ticker: quote.ticker, name: quote.name, market: 'TW' as const }));
 
-  const usResults = US_FALLBACKS.filter((quote) => quote.ticker.includes(normalized) || quote.name.toUpperCase().includes(normalized));
+  const usResults = await searchUsUniverse(normalized).catch(() => []);
 
-  return [...twResults, ...usResults].slice(0, 20);
+  return [...twResults, ...usResults].slice(0, 30);
 }
 
-function buildUsFallbackSnapshot(ticker: string): AssetSnapshot | null {
-  const found = US_FALLBACKS.find((item) => item.ticker === ticker.toUpperCase());
-  if (!found) return null;
+export async function getSnapshotByTicker(ticker: string): Promise<AssetSnapshot | null> {
+  const quotes = await fetchQuotes();
+  const quote = quotes[ticker];
+  if (quote) return buildSnapshotFromQuote(quote);
+
+  const usMatch = (await searchUsUniverse(ticker).catch(() => [])).find((item) => item.ticker === ticker.toUpperCase());
+  if (!usMatch) return null;
 
   const syntheticQuote: LiveQuote = {
-    ticker: found.ticker,
-    name: found.name,
+    ticker: usMatch.ticker,
+    name: usMatch.name,
     market: 'US',
     volume: 12000000,
     open: 180,
@@ -280,11 +273,4 @@ function buildUsFallbackSnapshot(ticker: string): AssetSnapshot | null {
   };
 
   return buildSnapshotFromQuote(syntheticQuote);
-}
-
-export async function getSnapshotByTicker(ticker: string): Promise<AssetSnapshot | null> {
-  const quotes = await fetchQuotes();
-  const quote = quotes[ticker];
-  if (quote) return buildSnapshotFromQuote(quote);
-  return buildUsFallbackSnapshot(ticker);
 }
