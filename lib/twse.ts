@@ -2,7 +2,7 @@ import { ETF_ASSETS } from '@/lib/asset-classifier';
 import { AssetCategory, AssetSnapshot, DailyBar, LiveQuote, SearchResult } from '@/lib/types';
 
 const QUOTE_URL = 'https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?type=ALLBUT0999&response=json';
-const ETF_TICKERS = new Set(ETF_ASSETS.map((asset) => asset.ticker));
+const CORE_TICKERS = new Set(ETF_ASSETS.map((asset) => asset.ticker));
 const CATEGORY_KEYWORDS: Array<{ category: AssetCategory; keywords: string[] }> = [
   { category: 'growth', keywords: ['增長', '成長', 'growth', '台股增長'] },
   { category: 'high_dividend', keywords: ['高息', '高股息', 'dividend', '收益'] },
@@ -39,7 +39,9 @@ async function fetchQuotes(): Promise<Record<string, LiveQuote>> {
 
     for (const row of table.data ?? []) {
       const ticker = row[0];
-      if (!ETF_TICKERS.has(ticker)) continue;
+      const isCore = CORE_TICKERS.has(ticker);
+      const isSearchCandidate = /^(00|01|02|03|04|005|006|008|009)/.test(ticker);
+      if (!isCore && !isSearchCandidate) continue;
 
       const close = parseNumber(row[8]);
       const change = parseNumber(row[10]);

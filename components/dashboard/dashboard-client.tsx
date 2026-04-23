@@ -28,6 +28,7 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
   const [stockQuery, setStockQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [addingTicker, setAddingTicker] = useState<string | null>(null);
 
   const filteredAssets = useMemo(() => {
     const pool = monitoredAssets;
@@ -52,12 +53,24 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
     }
   }
 
-  function addToMonitor(result: SearchResult) {
+  async function addToMonitor(result: SearchResult) {
     if (monitoredAssets.some((asset) => asset.ticker === result.ticker)) return;
+
     const existing = assets.find((asset) => asset.ticker === result.ticker);
     if (existing) {
       setMonitoredAssets((current) => [existing, ...current]);
       return;
+    }
+
+    setAddingTicker(result.ticker);
+    try {
+      const response = await fetch(`/api/snapshot?ticker=${encodeURIComponent(result.ticker)}`);
+      if (!response.ok) return;
+      const payload = (await response.json()) as { asset?: EvaluatedAsset };
+      if (!payload.asset) return;
+      setMonitoredAssets((current) => [payload.asset!, ...current]);
+    } finally {
+      setAddingTicker(null);
     }
   }
 
@@ -108,7 +121,7 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
                       <p className="font-semibold text-white">{result.ticker}</p>
                       <p className="text-sm text-slate-400">{result.name}</p>
                     </div>
-                    <Button type="button" className="gap-2" onClick={() => addToMonitor(result)}><Plus className="h-4 w-4" /> Add</Button>
+                    <Button type="button" className="gap-2" onClick={() => addToMonitor(result)} disabled={addingTicker === result.ticker}><Plus className="h-4 w-4" /> {addingTicker === result.ticker ? 'Adding...' : 'Add'}</Button>
                   </div>
                 ))}
               </div>
