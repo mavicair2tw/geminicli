@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { Activity, Bell, Globe, Plus, RefreshCcw, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Activity, Bell, Globe, Plus, RefreshCcw, Search, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { KChart } from '@/components/dashboard/k-chart';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ const copy = {
     noResults: '目前找不到符合的台股標的。',
     add: '加入',
     adding: '加入中...',
+    remove: '移除',
     buy: '買進',
     sell: '賣出',
     watch: '觀察',
@@ -84,6 +85,7 @@ const copy = {
     noResults: 'No matching TWSE listings found yet.',
     add: 'Add',
     adding: 'Adding...',
+    remove: 'Remove',
     buy: 'BUY',
     sell: 'SELL',
     watch: 'WATCH',
@@ -140,6 +142,7 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [addingTicker, setAddingTicker] = useState<string | null>(null);
+  const [removingTicker, setRemovingTicker] = useState<string | null>(null);
   const t = copy[language];
 
   const filteredAssets = useMemo(() => {
@@ -147,6 +150,24 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
     if (!normalizedSearch) return pool;
     return pool.filter((asset) => [asset.ticker, asset.name, asset.category].join(' ').toLowerCase().includes(normalizedSearch));
   }, [monitoredAssets, normalizedSearch]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/watchlist')
+      .then((response) => response.json())
+      .then((payload: { assets?: EvaluatedAsset[] }) => {
+        if (!active || !payload.assets?.length) return;
+        setMonitoredAssets((current) => {
+          const extras = payload.assets!.filter((asset) => !current.some((existing) => existing.ticker === asset.ticker));
+          return extras.length ? [...current, ...extras] : current;
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const buyCount = monitoredAssets.filter((asset) => asset.signal.action === 'BUY').length;
   const sellCount = monitoredAssets.filter((asset) => asset.signal.action === 'SELL').length;
@@ -171,11 +192,21 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
     const existing = assets.find((asset) => asset.ticker === result.ticker);
     if (existing) {
       setMonitoredAssets((current) => [existing, ...current]);
+      await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: result.ticker }),
+      });
       return;
     }
 
     setAddingTicker(result.ticker);
     try {
+      await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: result.ticker }),
+      });
       const response = await fetch(`/api/snapshot?ticker=${encodeURIComponent(result.ticker)}`);
       if (!response.ok) return;
       const payload = (await response.json()) as { asset?: EvaluatedAsset };
@@ -183,6 +214,16 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
       setMonitoredAssets((current) => [payload.asset!, ...current]);
     } finally {
       setAddingTicker(null);
+    }
+  }
+
+  async function removeFromMonitor(ticker: string) {
+    setRemovingTicker(ticker);
+    try {
+      await fetch(`/api/watchlist?ticker=${encodeURIComponent(ticker)}`, { method: 'DELETE' });
+      setMonitoredAssets((current) => current.filter((asset) => asset.ticker !== ticker));
+    } finally {
+      setRemovingTicker(null);
     }
   }
 
@@ -296,7 +337,18 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
                           <CardTitle className="mt-2 flex items-center gap-2">{asset.ticker}{asset.isCore ? <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-300">{t.core}</span> : null}</CardTitle>
                           <p className="mt-1 text-sm text-slate-400">{asset.name}</p>
                         </div>
-                        <Badge variant={asset.signal.severity}>{asset.signal.action}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={asset.signal.severity}>{asset.signal.action}</Badge>
+                          <button
+                            type="button"
+                            onClick={() => removeFromMonitor(asset.ticker)}
+                            className="rounded-full border border-white/10 p-2 text-slate-300 transition hover:bg-white/5"
+                            disabled={removingTicker === asset.ticker}
+                            aria-label={t.remove}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-5">
