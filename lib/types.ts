@@ -31,6 +31,10 @@ export interface ChartPoint {
   open: number;
   high: number;
   low: number;
+  volume: number;
+  ma5?: number;
+  ma20?: number;
+  ma60?: number;
 }
 
 export interface AssetSnapshot extends AssetDefinition {

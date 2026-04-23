@@ -2,15 +2,15 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
+
+import { Button } from '@/components/ui/button';
+import { ChartPoint } from '@/lib/types';
 
 const ResponsiveContainer = dynamic(
   () => import('recharts').then((mod) => mod.ResponsiveContainer),
   { ssr: false },
 );
-
-import { Button } from '@/components/ui/button';
-import { ChartPoint } from '@/lib/types';
 
 type RangeKey = 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
 
@@ -35,15 +35,23 @@ export function KChart({ series, labels }: KChartProps) {
           </Button>
         ))}
       </div>
-      <div className="h-64 w-full">
+      <div className="h-72 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <ComposedChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="label" stroke="#94a3b8" />
-            <YAxis stroke="#94a3b8" domain={['auto', 'auto']} />
+            <YAxis yAxisId="price" stroke="#94a3b8" domain={['auto', 'auto']} />
+            <YAxis yAxisId="volume" orientation="right" stroke="#475569" domain={[0, 'auto']} hide />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 12 }} />
-            <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2} dot={false} />
-          </LineChart>
+            <Bar yAxisId="volume" dataKey="volume" fill="#1d4ed8" opacity={0.25} barSize={10} />
+            <Bar yAxisId="price" dataKey="high" fill="#64748b" opacity={0.3} barSize={4} radius={[4, 4, 4, 4]} />
+            <Bar yAxisId="price" dataKey="low" fill="#334155" opacity={0.25} barSize={4} radius={[4, 4, 4, 4]} />
+            <Bar yAxisId="price" dataKey="open" fill="#ef4444" opacity={0.55} barSize={8} radius={[4, 4, 4, 4]} />
+            <Bar yAxisId="price" dataKey="close" fill="#22c55e" opacity={0.7} barSize={8} radius={[4, 4, 4, 4]} />
+            <Line yAxisId="price" type="monotone" dataKey="ma5" stroke="#f59e0b" strokeWidth={2} dot={false} />
+            <Line yAxisId="price" type="monotone" dataKey="ma20" stroke="#38bdf8" strokeWidth={2} dot={false} />
+            <Line yAxisId="price" type="monotone" dataKey="ma60" stroke="#a855f7" strokeWidth={2} dot={false} />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

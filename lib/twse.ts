@@ -134,35 +134,60 @@ function inferCategory(ticker: string, name: string): AssetCategory {
   return matched?.category ?? 'balanced';
 }
 
-function buildChartSeries(history: DailyBar[]): Record<'hour' | 'day' | 'week' | 'month' | 'year' | 'all', ChartPoint[]> {
-  const toChart = (bars: DailyBar[], formatter: (bar: DailyBar, index: number) => string) =>
-    bars.map((bar, index) => ({
+function computeMovingAverage(history: DailyBar[], index: number, length: number) {
+  const start = Math.max(0, index - length + 1);
+  const slice = history.slice(start, index + 1);
+  if (slice.length < length) return undefined;
+  return Number((slice.reduce((sum, bar) => sum + bar.close, 0) / slice.length).toFixed(2));
+}
+
+function toChartPoint(history: DailyBar[], formatter: (bar: DailyBar, index: number) => string): ChartPoint[] {
+  return history.map((bar, index) => {
+    const baseVolume = 500000 + index * 32000;
+    const direction = index === 0 ? 0 : bar.close - history[index - 1].close;
+    const open = Number((bar.close - direction * 0.35).toFixed(2));
+    const high = Number((Math.max(open, bar.close) + Math.abs(direction) * 0.6 + 0.12).toFixed(2));
+    const low = Number((Math.min(open, bar.close) - Math.abs(direction) * 0.5 - 0.1).toFixed(2));
+    return {
       label: formatter(bar, index),
       close: bar.close,
-      open: Number((bar.close * 0.992).toFixed(2)),
-      high: Number((bar.close * 1.01).toFixed(2)),
-      low: Number((bar.close * 0.985).toFixed(2)),
-    }));
+      open,
+      high,
+      low,
+      volume: Math.round(baseVolume + Math.abs(direction) * 100000),
+      ma5: computeMovingAverage(history, index, 5),
+      ma20: computeMovingAverage(history, index, 20),
+      ma60: computeMovingAverage(history, index, 60),
+    };
+  });
+}
 
+function buildChartSeries(history: DailyBar[]): Record<'hour' | 'day' | 'week' | 'month' | 'year' | 'all', ChartPoint[]> {
   const latest = history[history.length - 1]?.close ?? 0;
   const hour = Array.from({ length: 24 }, (_, index) => {
     const base = latest + Math.sin(index / 3) * 0.2;
+    const open = Number((base - Math.cos(index / 4) * 0.08).toFixed(2));
+    const close = Number(base.toFixed(2));
     return {
       label: `${String(index).padStart(2, '0')}:00`,
-      close: Number(base.toFixed(2)),
-      open: Number((base * 0.997).toFixed(2)),
-      high: Number((base * 1.003).toFixed(2)),
-      low: Number((base * 0.994).toFixed(2)),
+      close,
+      open,
+      high: Number((Math.max(open, close) + 0.08).toFixed(2)),
+      low: Number((Math.min(open, close) - 0.08).toFixed(2)),
+      volume: 80000 + index * 2200,
+      ma5: undefined,
+      ma20: undefined,
+      ma60: undefined,
     };
   });
 
   return {
     hour,
-    day: toChart(history.slice(-7), (bar) => bar.date.slice(5)),
-    week: toChart(history.slice(-12).filter((_, index) => index % 2 === 0), (bar) => bar.date.slice(5)),
-    month: toChart(history.slice(-30), (bar) => bar.date.slice(8)),
-    year: toChart(history.slice(-12).filter((_, index) => index % 5 === 0), (bar) => bar.date.slice(5)),
-    all: toChart(history, (bar) => bar.date.slice(5)),
+    day: toChartPoint(history.slice(-7), (bar) => bar.date.slice(5)),
+    week: toChartPoint(history.slice(-12).filter((_, index) => index % 2 === 0), (bar) => bar.date.slice(5)),
+    month: toChartPoint(history.slice(-30), (bar) => bar.date.slice(8)),
+    year: toChartPoint(history.slice(-12).filter((_, index) => index % 5 === 0), (bar) => bar.date.slice(5)),
+    all: toChartPoint(history, (bar) => bar.date.slice(5)),
   };
 }
 
