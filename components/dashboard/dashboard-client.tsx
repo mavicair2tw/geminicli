@@ -245,7 +245,7 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
                 {searchResults.map((result) => (
                   <div key={result.ticker} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/50 p-4">
                     <div>
-                      <p className="font-semibold text-white">{result.ticker}</p>
+                      <p className="font-semibold text-white">{result.ticker} {result.market ? `· ${result.market}` : ''}</p>
                       <p className="text-sm text-slate-400">{result.name}</p>
                     </div>
                     <Button type="button" className="gap-2" onClick={() => addToMonitor(result)} disabled={addingTicker === result.ticker}><Plus className="h-4 w-4" /> {addingTicker === result.ticker ? t.adding : t.add}</Button>

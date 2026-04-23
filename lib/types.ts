@@ -86,6 +86,7 @@ export interface DailyBar {
 export interface LiveQuote {
   ticker: string;
   name: string;
+  market?: 'TW' | 'US';
   volume: number;
   open: number;
   high: number;
@@ -97,4 +98,5 @@ export interface LiveQuote {
 export interface SearchResult {
   ticker: string;
   name: string;
+  market?: 'TW' | 'US';
 }
