@@ -1,12 +1,15 @@
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { mockSnapshots } from '@/lib/mock-data';
 import { detectMarketRegime } from '@/lib/market-regime';
 import { evaluateSignal, getDefaultRules } from '@/lib/signal-engine';
+import { getLiveSnapshots } from '@/lib/twse';
 
-export default function HomePage() {
+export const revalidate = 300;
+
+export default async function HomePage() {
   const rules = getDefaultRules();
-  const marketState = detectMarketRegime(mockSnapshots);
-  const assets = mockSnapshots.map((asset) => ({
+  const snapshots = await getLiveSnapshots();
+  const marketState = detectMarketRegime(snapshots);
+  const assets = snapshots.map((asset) => ({
     ...asset,
     signal: evaluateSignal(asset, marketState, rules),
   }));
@@ -27,7 +30,7 @@ export default function HomePage() {
       marketRegime={marketState.regime}
       marketSummary={marketState.summary}
       rules={rules}
-      updatedAt={new Date(mockSnapshots[0]?.updatedAt ?? Date.now()).toLocaleString('en-US', {
+      updatedAt={new Date(snapshots[0]?.updatedAt ?? Date.now()).toLocaleString('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
       })}

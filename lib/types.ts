@@ -54,3 +54,19 @@ export interface RulesConfig {
   premiumCeiling: number;
   refreshIntervalSeconds: number;
 }
+
+export interface DailyBar {
+  date: string;
+  close: number;
+}
+
+export interface LiveQuote {
+  ticker: string;
+  name: string;
+  volume: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  change: number;
+}
