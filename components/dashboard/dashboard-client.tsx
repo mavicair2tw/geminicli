@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Activity, Bell, Globe, Plus, RefreshCcw, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { AuthPanel } from '@/components/dashboard/auth-panel';
 import { KChart } from '@/components/dashboard/k-chart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -192,26 +193,27 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
     const existing = assets.find((asset) => asset.ticker === result.ticker);
     if (existing) {
       setMonitoredAssets((current) => [existing, ...current]);
-      await fetch('/api/watchlist', {
+      fetch('/api/watchlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: result.ticker }),
-      });
+      }).catch(() => undefined);
       return;
     }
 
     setAddingTicker(result.ticker);
     try {
-      await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: result.ticker }),
-      });
       const response = await fetch(`/api/snapshot?ticker=${encodeURIComponent(result.ticker)}`);
       if (!response.ok) return;
       const payload = (await response.json()) as { asset?: EvaluatedAsset };
       if (!payload.asset) return;
       setMonitoredAssets((current) => [payload.asset!, ...current]);
+
+      fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: result.ticker }),
+      }).catch(() => undefined);
     } finally {
       setAddingTicker(null);
     }
@@ -271,6 +273,8 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
             <span>{marketSummary}</span>
           </div>
         </motion.header>
+
+        <AuthPanel />
 
         <Card>
           <CardHeader>
