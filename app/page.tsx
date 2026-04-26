@@ -1,3 +1,4 @@
+import React from 'react';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { detectMarketRegime } from '@/lib/market-regime';
 import { evaluateSignal, getDefaultRules } from '@/lib/signal-engine';
@@ -24,17 +25,22 @@ export default async function HomePage() {
       reasonI18n: asset.signal.reasonI18n,
     }));
 
+  // eslint-disable-next-line react-hooks/purity
+  const currentTimestamp = Date.now();
+
   return (
-    <DashboardClient
-      assets={assets}
-      alerts={alerts}
-      marketRegime={marketState.regime}
-      marketSummary={marketState.summary}
-      rules={rules}
-      updatedAt={new Date(snapshots[0]?.updatedAt ?? Date.now()).toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })}
-    />
+    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400">Loading...</div>}>
+      <DashboardClient
+        assets={assets}
+        alerts={alerts}
+        marketRegime={marketState.regime}
+        marketSummary={marketState.summary}
+        rules={rules}
+        updatedAt={new Date(snapshots[0]?.updatedAt ?? currentTimestamp).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}
+      />
+    </React.Suspense>
   );
 }

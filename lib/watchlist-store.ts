@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { ETF_ASSETS } from './asset-classifier';
 
 const storagePath = path.join(process.cwd(), '.data', 'watchlist.json');
 
@@ -11,9 +12,11 @@ export async function readWatchlist(): Promise<string[]> {
   try {
     const raw = await fs.readFile(storagePath, 'utf8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    const list = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    if (list.length === 0) return ETF_ASSETS.map(a => a.ticker);
+    return list;
   } catch {
-    return [];
+    return ETF_ASSETS.map(a => a.ticker);
   }
 }
 

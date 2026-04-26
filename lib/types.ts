@@ -40,7 +40,7 @@ export interface ChartPoint {
 export interface AssetSnapshot extends AssetDefinition {
   updatedAt: string;
   metrics: AssetMetrics;
-  chartSeries?: Record<'hour' | 'day' | 'week' | 'month' | 'year' | 'all', ChartPoint[]>;
+  chartSeries?: Record<'30m' | '60m' | 'day' | 'week' | '1m' | '3m' | '1y' | 'all', ChartPoint[]>;
 }
 
 export interface SignalOutput {

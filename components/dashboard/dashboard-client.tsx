@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { Activity, Bell, Globe, Plus, RefreshCcw, Search, Trash2 } from 'lucide-react';
+import { Activity, Bell, Globe, Plus, RefreshCcw, Search, Trash2, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { AuthPanel } from '@/components/dashboard/auth-panel';
 import { KChart } from '@/components/dashboard/k-chart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,11 +50,13 @@ const copy = {
     confidence: '信心分數',
     signalFeed: '訊號紀錄',
     chartTitle: 'K 線圖',
-    hour: '時',
+    '30m': '30分',
+    '60m': '60分',
     day: '日',
     week: '週',
-    month: '月',
-    year: '年',
+    '1m': '1月',
+    '3m': '3月',
+    '1y': '1年',
     all: '全部',
     growth: '成長型',
     highDividend: '高股息',
@@ -103,11 +105,13 @@ const copy = {
     confidence: 'Confidence score',
     signalFeed: 'Signal feed',
     chartTitle: 'K Chart',
-    hour: 'Hour',
+    '30m': '30m',
+    '60m': '60m',
     day: 'Day',
     week: 'Week',
-    month: 'Month',
-    year: 'Year',
+    '1m': '1m',
+    '3m': '3m',
+    '1y': '1y',
     all: 'All',
     growth: 'Growth',
     highDividend: 'High Dividend',
@@ -136,6 +140,7 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ assets, alerts, marketRegime, marketSummary, rules, updatedAt }: DashboardClientProps) {
+  const searchParams = useSearchParams();
   const { search, setSearch, normalizedSearch, autoRefresh, setAutoRefresh } = useDashboardControls();
   const [language, setLanguage] = useState<Language>('zh-TW');
   const [monitoredAssets, setMonitoredAssets] = useState(assets);
@@ -144,7 +149,29 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
   const [searching, setSearching] = useState(false);
   const [addingTicker, setAddingTicker] = useState<string | null>(null);
   const [removingTicker, setRemovingTicker] = useState<string | null>(null);
+  const [selectedAssetForChart, setSelectedAssetForChart] = useState<EvaluatedAsset | null>(null);
   const t = copy[language];
+
+  // Auto-select asset from URL param
+  useEffect(() => {
+    const ticker = searchParams.get('ticker');
+    if (ticker && selectedAssetForChart?.ticker !== ticker) {
+      const asset = monitoredAssets.find((a) => a.ticker === ticker);
+      if (asset) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedAssetForChart(asset);
+      } else {
+        fetch(`/api/snapshot?ticker=${encodeURIComponent(ticker)}`)
+          .then((response) => response.json())
+          .then((payload: { asset?: EvaluatedAsset }) => {
+            if (payload.asset) {
+              setSelectedAssetForChart(payload.asset);
+            }
+          })
+          .catch(() => undefined);
+      }
+    }
+  }, [searchParams, monitoredAssets, selectedAssetForChart]);
 
   const filteredAssets = useMemo(() => {
     const pool = monitoredAssets;
@@ -231,6 +258,27 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 md:px-8">
+      {/* Scrolling Ticker */}
+      <div className="mx-auto max-w-7xl mb-8 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/50 py-3">
+        <div className="flex animate-[ticker_60s_linear_infinite] whitespace-nowrap">
+          {[...monitoredAssets, ...monitoredAssets].map((asset, i) => (
+            <button
+              key={`${asset.ticker}-${i}`}
+              type="button"
+              onClick={() => setSelectedAssetForChart((prev) => prev?.ticker === asset.ticker ? null : asset)}
+              className="mx-8 flex items-center gap-3 transition hover:text-emerald-400"
+            >
+              <span className="font-bold">{asset.ticker}</span>
+              <span className="text-sm text-slate-400">{asset.metrics.price.toFixed(2)}</span>
+              <span className={`text-xs ${asset.metrics.price >= asset.metrics.previousClose ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {asset.metrics.price >= asset.metrics.previousClose ? '+' : ''}
+                {(((asset.metrics.price - asset.metrics.previousClose) / asset.metrics.previousClose) * 100).toFixed(2)}%
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="mx-auto max-w-7xl space-y-8">
         <motion.header initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/40">
           <div className="mb-4 flex justify-end">
@@ -273,8 +321,6 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
             <span>{marketSummary}</span>
           </div>
         </motion.header>
-
-        <AuthPanel />
 
         <Card>
           <CardHeader>
@@ -338,7 +384,16 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-sm uppercase tracking-[0.24em] text-slate-400">{asset.category === 'growth' ? t.growth : asset.category === 'high_dividend' ? t.highDividend : t.balanced}</p>
-                          <CardTitle className="mt-2 flex items-center gap-2">{asset.ticker}{asset.isCore ? <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-300">{t.core}</span> : null}</CardTitle>
+                          <CardTitle className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAssetForChart((prev) => prev?.ticker === asset.ticker ? null : asset)}
+                              className="transition hover:text-emerald-400"
+                            >
+                              {asset.ticker}
+                            </button>
+                            {asset.isCore ? <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-300">{t.core}</span> : null}
+                          </CardTitle>
                           <p className="mt-1 text-sm text-slate-400">{asset.name}</p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -379,11 +434,13 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
                         <KChart
                           series={asset.chartSeries}
                           labels={{
-                            hour: t.hour,
+                            '30m': t['30m'],
+                            '60m': t['60m'],
                             day: t.day,
                             week: t.week,
-                            month: t.month,
-                            year: t.year,
+                            '1m': t['1m'],
+                            '3m': t['3m'],
+                            '1y': t['1y'],
                             all: t.all,
                           }}
                         />
@@ -428,6 +485,41 @@ export function DashboardClient({ assets, alerts, marketRegime, marketSummary, r
           </TabsContent>
         </Tabs>
       </div>
+
+      {selectedAssetForChart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-4xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedAssetForChart(null)}
+              className="absolute right-6 top-6 rounded-full border border-white/10 p-2 text-slate-300 transition hover:bg-white/5"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mb-6">
+              <p className="text-sm uppercase tracking-[0.24em] text-emerald-300">{selectedAssetForChart.category.replace('_', ' ')}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">{selectedAssetForChart.ticker} · {selectedAssetForChart.name}</h2>
+            </div>
+            <KChart
+              series={selectedAssetForChart.chartSeries}
+              labels={{
+                '30m': t['30m'],
+                '60m': t['60m'],
+                day: t.day,
+                week: t.week,
+                '1m': t['1m'],
+                '3m': t['3m'],
+                '1y': t['1y'],
+                all: t.all,
+              }}
+            />
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

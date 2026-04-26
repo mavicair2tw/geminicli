@@ -26,13 +26,12 @@ planner = PlannerAgent(gemini_key)
 executor = OpenClawExecutor()
 
 AVAILABLE_SKILLS = {
-    "stock_analyst": "分析台股數據，顯示即時股價與一個月內的 K 線圖走勢。",
+    "stock_analyst": "分析台股即時股價與 K 線走勢圖。",
 }
 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "current_plan" not in st.session_state: st.session_state.current_plan = None
 
-# --- 輔助函數：繪製 K 線圖 ---
 def render_k_chart(stock_id, df):
     fig = go.Figure(data=[go.Candlestick(
         x=df.index, open=df['Open'], high=df['High'], 
@@ -63,24 +62,24 @@ with st.sidebar:
         st.session_state.current_plan = None
         st.rerun()
 
-# --- 渲染歷史訊息 (支援富文本與圖表) ---
+# 渲染歷史訊息
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         if message.get("type") == "text":
             st.markdown(message["content"])
+        elif message.get("type") == "error":
+            st.error(message["content"])
         elif message.get("type") == "stock_result":
-            # 渲染股價指標
             st.metric(message["stock_id"], f"{message['price']}", f"{message['change']}")
-            # 渲染 K 線圖
             render_k_chart(message["stock_id"], message["df"])
             st.markdown(message["content"])
 
-# --- 處理輸入 ---
-if prompt := st.chat_input("輸入指令 (例如: 分析 2330)"):
+# 處理輸入
+if prompt := st.chat_input("輸入指令..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "type": "text"})
     st.rerun()
 
-# 顯示 Assistant 規劃邏輯
+# Assistant 規劃邏輯
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user" and not st.session_state.current_plan:
     with st.chat_message("assistant"):
         user_msg = st.session_state.messages[-1]["content"]
@@ -91,7 +90,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             status.update(label="✅ 計畫規劃完成", state="complete")
         st.rerun()
 
-# --- 執行確認區 (Permission Gate) ---
+# 執行確認區
 if st.session_state.current_plan:
     with st.chat_message("assistant"):
         st.warning("⚠️ **Permission Gate**：AI 請求執行計畫。")
@@ -99,25 +98,31 @@ if st.session_state.current_plan:
         
         if st.button("🚀 確認並執行計畫"):
             for step in st.session_state.current_plan:
-                res = executor.run_step(step)
-                
-                if isinstance(res, dict) and res.get("status") == "success":
-                    # 將帶有數據的結果存入 messages
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "type": "stock_result",
-                        "stock_id": res['data']['stock_id'],
-                        "price": res['data']['current_price'],
-                        "change": res['data']['change'],
-                        "df": res['data']['history'],
-                        "content": res['data']['msg']
-                    })
-                elif isinstance(res, dict) and res.get("status") == "final":
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "type": "text",
-                        "content": f"**任務完成**: {res['content']}"
-                    })
+                with st.spinner(f"正在執行: {step.get('skill')}..."):
+                    res = executor.run_step(step)
+                    
+                    if isinstance(res, dict) and res.get("status") == "success":
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "type": "stock_result",
+                            "stock_id": res['data']['stock_id'],
+                            "price": res['data']['current_price'],
+                            "change": res['data']['change'],
+                            "df": res['data']['history'],
+                            "content": res['data']['msg']
+                        })
+                    elif isinstance(res, dict) and res.get("status") == "error":
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "type": "error",
+                            "content": f"❌ 執行失敗 ({step.get('skill')}): {res.get('message')}"
+                        })
+                    elif isinstance(res, dict) and res.get("status") == "final":
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "type": "text",
+                            "content": f"🏁 **任務總結**: {res['content']}"
+                        })
             
             st.session_state.current_plan = None
             st.rerun()

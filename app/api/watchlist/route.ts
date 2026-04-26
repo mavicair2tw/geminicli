@@ -41,6 +41,6 @@ export async function DELETE(request: NextRequest) {
   }
 
   const watchlist = await readWatchlist();
-  await writeWatchlist(watchlist.filter((item) => item !== ticker));
+  await writeWatchlist(watchlist.filter((item) => item.toUpperCase() !== ticker));
   return NextResponse.json({ ok: true });
 }

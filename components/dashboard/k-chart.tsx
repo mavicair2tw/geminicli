@@ -12,15 +12,17 @@ const ResponsiveContainer = dynamic(
   { ssr: false },
 );
 
-type RangeKey = 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
+type RangeKey = '30m' | '60m' | 'day' | 'week' | '1m' | '3m' | '1y' | 'all';
 
 interface KChartProps {
   series?: Record<RangeKey, ChartPoint[]>;
   labels: Record<RangeKey, string>;
+  defaultRange?: RangeKey;
+  showSelector?: boolean;
 }
 
-export function KChart({ series, labels }: KChartProps) {
-  const [range, setRange] = useState<RangeKey>('day');
+export function KChart({ series, labels, defaultRange = 'day', showSelector = true }: KChartProps) {
+  const [range, setRange] = useState<RangeKey>(defaultRange);
 
   const data = useMemo(() => series?.[range] ?? [], [range, series]);
 
@@ -28,13 +30,26 @@ export function KChart({ series, labels }: KChartProps) {
 
   return (
     <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(labels) as RangeKey[]).map((key) => (
-          <Button key={key} type="button" className={key === range ? '' : 'bg-slate-800 text-white hover:bg-slate-700'} onClick={() => setRange(key)}>
-            {labels[key]}
-          </Button>
-        ))}
-      </div>
+      {showSelector && (
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(['30m', '60m', 'day', 'week'] as RangeKey[]).map((key) => (
+              <Button key={key} type="button" className={key === range ? '' : 'bg-slate-800 text-white hover:bg-slate-700'} onClick={() => setRange(key)}>
+                {labels[key]}
+              </Button>
+            ))}
+          </div>
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value as RangeKey)}
+            className="rounded-md border border-white/10 bg-slate-900 px-2 py-1 text-sm text-white outline-none"
+          >
+            {(Object.keys(labels) as RangeKey[]).map((key) => (
+              <option key={key} value={key}>{labels[key]}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="h-72 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data}>
