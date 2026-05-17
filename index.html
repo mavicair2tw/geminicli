@@ -1,27 +1,31 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OpenClaw AI 投資分析師</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Market Monitor</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            background-color: #0e1117; /* Streamlit 深色背景色 */
-        }
-        iframe {
-            border: none;
-            width: 100%;
-            height: 100%;
-        }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        background: #eef2f3;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
     </style>
-</head>
-<body>
-    <!-- 嵌入您的 Streamlit App 網址 -->
-    <iframe src="https://crnrbmgb5pzltxy2w79mae.streamlit.app/?embed=true" allow="clipboard-read; clipboard-write"></iframe>
-</body>
+  </head>
+  <body>
+    <iframe
+      src="https://stock-line-reporter.vercel.app/"
+      title="Stock Market Monitor"
+      allow="clipboard-read; clipboard-write"
+    ></iframe>
+  </body>
 </html>
